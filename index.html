@@ -66,6 +66,8 @@
     .mode-number { display: block; font: 500 30px Georgia, serif; color: var(--olive); margin-bottom: 6px; }
     .mode-label { font-size: 13px; color: var(--muted); }
     .actions-row { display: flex; align-items: center; gap: 14px; margin: 21px 0 0; }
+    .author-signature { margin: 48px 0 0; padding-top: 15px; border-top: 1px solid #9f896333; color: #777967; text-align: center; font-size: 12px; line-height: 1.6; }
+    .author-signature p { margin: 0; }
     .primary-button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 48px; padding: 0 21px; border: 0; border-radius: 8px; color: #fffdf6; background: var(--olive); font-weight: 700; cursor: pointer; box-shadow: 0 4px 9px #3d4a2b24; transition: background .2s, transform .2s; }
     .primary-button:hover { background: #465536; transform: translateY(-1px); }
     .primary-button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
@@ -226,6 +228,10 @@
           <button class="primary-button" id="start-button">Начать игру <span aria-hidden="true">→</span></button>
           <span class="progress-note" id="saved-progress-note"></span>
         </div>
+        <footer class="author-signature">
+          <p>Автор игры — Наталья Брик</p>
+          <p>Онлайн-школа «Эллипс» · 2026</p>
+        </footer>
       </section>
 
       <section class="screen" id="game-screen" aria-label="Игровой раунд">
