@@ -23,6 +23,14 @@
     { "id": "bird-cherry", "name": "Черёмуха", "image": "assets/photos/черемуха.jpg" },
     { "id": "oak", "name": "Дуб черешчатый", "image": "assets/photos/дуб.jpg" },
     { "id": "viburnum", "name": "Калина", "image": "assets/photos/калина.jpg" },
-    { "id": "variegated-dogwood", "name": "Пестролистный дёрен", "image": "assets/photos/дёрен. пестр.jpg" }
+    { "id": "variegated-dogwood", "name": "Пестролистный дёрен", "image": "assets/photos/дёрен. пестр.jpg" },
+    {
+      "id": "pear",
+      "name": "Груша",
+      "latin": "Pyrus communis",
+      "fact": "А ты знал? Груша — близкая родственница яблони. Некоторые грушевые деревья живут больше ста лет, а их плоды могут становиться мягче и слаще уже после того, как их сорвали с ветки!",
+      "image": "assets/photos/груша.jpg"
+    },
+    { "id": "sea-buckthorn", "name": "Облепиха", "image": "assets/photos/облепиха.jpg" }
   ]
 }

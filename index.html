@@ -227,7 +227,7 @@
         <div class="mode-grid" role="group" aria-label="Режим игры">
           <button class="mode-card selected" data-mode="14" aria-pressed="true"><span class="mode-number">Знаток</span><span class="mode-label">14 разных листьев</span></button>
           <button class="mode-card" data-mode="27" aria-pressed="false"><span class="mode-number">Супер-знаток</span><span class="mode-label">27 разных листьев</span></button>
-          <button class="mode-card" data-mode="photos" aria-pressed="false"><span class="mode-number">Узнай листья по фото</span><span class="mode-label">18 настоящих фотографий</span></button>
+          <button class="mode-card" data-mode="photos" aria-pressed="false"><span class="mode-number">Узнай листья по фото</span><span class="mode-label">20 настоящих фотографий</span></button>
         </div>
         <div class="actions-row">
           <button class="primary-button" id="start-button">Начать игру <span aria-hidden="true">→</span></button>
@@ -371,15 +371,18 @@
         });
         return image;
       }
+      function makeQuestion(item, pool) {
+        return {
+          speciesId: item.id,
+          choiceIds: shuffle([item.id, ...shuffle(pool.filter(option => option.id !== item.id)).slice(0, 3).map(option => option.id)]),
+        };
+      }
       function startGame(mode) {
         const pool = mode === 'photos' ? photoSpecies : species;
-        const selected = shuffle(pool).slice(0, mode === 'photos' ? 18 : mode);
+        const selected = shuffle(pool).slice(0, mode === 'photos' ? 20 : mode);
         game = {
           mode,
-          questions: selected.map(item => ({
-            speciesId: item.id,
-            choiceIds: shuffle([item.id, ...shuffle(selected.filter(option => option.id !== item.id)).slice(0, 3).map(option => option.id)]),
-          })),
+          questions: selected.map(item => makeQuestion(item, selected)),
           questionIndex: 0,
           score: 0,
           completed: false,
@@ -542,12 +545,14 @@
           };
         });
         const photoIds = new Set(photoSpecies.map(item => item.id));
-        if (photoSpecies.length !== 18
+        if (photoSpecies.length !== 20
           || photoIds.size !== photoSpecies.length
           || photoSpecies.some(item => !item.id || !item.name || !item.image || !item.latin || !item.fact)
-          || photoSpecies.filter(item => item.collectionId).length !== 17
-          || !photoIds.has('blackberry')) {
-          return new Error('Для фоторежима нужны 18 уникальных фотографий и факты для всех растений.');
+          || photoSpecies.filter(item => item.collectionId).length !== 18
+          || !photoIds.has('blackberry')
+          || !photoIds.has('pear')
+          || !photoIds.has('sea-buckthorn')) {
+          return new Error('Для фоторежима нужны 20 уникальных фотографий и факты для всех растений.');
         }
         return null;
       }
@@ -612,9 +617,17 @@
         const classicMode = classicGame?.mode;
         const classicExpectedCount = classicMode === 14 ? 14 : 27;
         if (classicGame && !validGameState(classicGame, speciesIds, classicMode, classicExpectedCount)) classicGame = null;
-        if (photoGame && !validGameState(photoGame, photoIds, 'photos', 18)) {
+        const savedPhotoRoundCount = photoGame?.completed && photoGame.questions?.length === 18
+          ? 18
+          : photoGame?.questions?.length === 18 && !photoGame.completed ? 18 : 20;
+        if (photoGame && !validGameState(photoGame, photoIds, 'photos', savedPhotoRoundCount)) {
           photoGame = null;
           localStorage.removeItem(PHOTO_GAME_KEY);
+        } else if (photoGame && !photoGame.completed && photoGame.questions.length === 18) {
+          const existingIds = new Set(photoGame.questions.map(question => question.speciesId));
+          const newQuestions = shuffle(photoSpecies.filter(item => !existingIds.has(item.id)))
+            .map(item => makeQuestion(item, photoSpecies));
+          photoGame.questions.push(...newQuestions);
         }
         collection = new Set([...collection].filter(id => speciesIds.has(id)));
         game = classicGame;
