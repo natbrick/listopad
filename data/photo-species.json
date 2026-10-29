@@ -1,0 +1,28 @@
+{
+  "photos": [
+    { "id": "rosehip", "name": "Шиповник", "image": "assets/photos/шиповник.jpg" },
+    { "id": "hazel", "name": "Лещина", "image": "assets/photos/лещина.jpg" },
+    { "id": "elm", "name": "Вяз", "image": "assets/photos/вяз.jpg" },
+    {
+      "id": "blackberry",
+      "name": "Ежевика",
+      "latin": "Rubus fruticosus agg.",
+      "fact": "А ты знал? Ежевика — близкая родственница малины, но её ягода при сборе отделяется вместе с беловатой сердцевиной. А длинные побеги ежевики могут укореняться, если их кончики коснутся земли, — так кустарник постепенно занимает новые места!",
+      "image": "assets/photos/ежевика.jpg"
+    },
+    { "id": "birch", "name": "Берёза", "image": "assets/photos/береза.jpg" },
+    { "id": "manchurian-walnut", "name": "Маньчжурский орех", "image": "assets/photos/ман. орех.jpg" },
+    { "id": "chokeberry", "name": "Черноплодная рябина", "image": "assets/photos/черноплодка.jpg" },
+    { "id": "red-oak", "name": "Дуб красный", "image": "assets/photos/кр. дуб.jpg" },
+    { "id": "rowan", "name": "Рябина", "image": "assets/photos/рябина.jpg" },
+    { "id": "virginia-creeper", "name": "Девичий виноград", "image": "assets/photos/дев. виноград.jpg" },
+    { "id": "lilac", "name": "Сирень", "image": "assets/photos/сирень (2).jpg" },
+    { "id": "aspen", "name": "Осина", "image": "assets/photos/осина.jpg" },
+    { "id": "linden", "name": "Липа", "image": "assets/photos/липа.jpg" },
+    { "id": "willow", "name": "Ива", "image": "assets/photos/ива.jpg" },
+    { "id": "bird-cherry", "name": "Черёмуха", "image": "assets/photos/черемуха.jpg" },
+    { "id": "oak", "name": "Дуб черешчатый", "image": "assets/photos/дуб.jpg" },
+    { "id": "viburnum", "name": "Калина", "image": "assets/photos/калина.jpg" },
+    { "id": "variegated-dogwood", "name": "Пестролистный дёрен", "image": "assets/photos/дёрен. пестр.jpg" }
+  ]
+}

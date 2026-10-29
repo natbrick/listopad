@@ -58,7 +58,7 @@
     .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin: 24px 0 13px; }
     .section-heading h2 { margin: 0; font: 500 24px Georgia, serif; }
     .section-heading p { color: var(--muted); margin: 0; font-size: 13px; }
-    .mode-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 760px; }
+    .mode-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
     .mode-card { min-height: 124px; text-align: left; border: 1px solid var(--line); background: linear-gradient(135deg, #fffdf5e8, #f0e6d2b8); border-radius: 12px; padding: 18px; color: var(--ink); cursor: pointer; box-shadow: 0 4px 12px #59462110; transition: transform .18s, border-color .18s, background .18s, box-shadow .18s; }
     .mode-card:hover { transform: translateY(-2px); border-color: #b98952; box-shadow: 0 8px 18px #59462118; }
     .mode-card:focus-visible { outline: 3px solid #c8853780; outline-offset: 2px; }
@@ -110,6 +110,9 @@
     .question-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(290px, .9fr); gap: 18px; align-items: stretch; }
     .question-art { width: min(100%, 340px); height: 270px; margin: 18px auto; display: grid; place-items: center; padding: 18px; border: 1px solid #dfd3bb; border-radius: 9px; background: #eee7d5; }
     .question-art .leaf-illustration { width: 100%; max-height: 232px; }
+    .question-art.photo-question { width: min(calc(100% - 24px), 480px); height: min(62vh, 480px); min-height: 270px; padding: 10px; }
+    .photo-image { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .photo-load-error { padding: 20px; color: var(--rust); text-align: center; line-height: 1.5; }
     .question-art .missing-art { min-height: 190px; }
     .question-art .missing-icon { width: 48px; height: 48px; font-size: 29px; }
     .question-art .missing-art small { font-size: 12px; }
@@ -163,7 +166,8 @@
       .intro { padding-top: 37px; }
       .intro-copy { max-width: 78%; font-size: 14px; }
       .section-heading { align-items: start; flex-direction: column; gap: 5px; }
-      .mode-grid { gap: 8px; }
+      .mode-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .mode-card:last-child { grid-column: 1 / -1; }
       .mode-card { padding: 13px; min-height: 110px; }
       .mode-card.selected { padding: 12px; }
       .mode-number { font-size: 26px; }
@@ -223,6 +227,7 @@
         <div class="mode-grid" role="group" aria-label="Режим игры">
           <button class="mode-card selected" data-mode="14" aria-pressed="true"><span class="mode-number">Знаток</span><span class="mode-label">14 разных листьев</span></button>
           <button class="mode-card" data-mode="27" aria-pressed="false"><span class="mode-number">Супер-знаток</span><span class="mode-label">27 разных листьев</span></button>
+          <button class="mode-card" data-mode="photos" aria-pressed="false"><span class="mode-number">Узнай листья по фото</span><span class="mode-label">18 настоящих фотографий</span></button>
         </div>
         <div class="actions-row">
           <button class="primary-button" id="start-button">Начать игру <span aria-hidden="true">→</span></button>
@@ -270,16 +275,21 @@
   <script>
     (() => {
       const GAME_KEY = 'listopad.game.v1';
+      const PHOTO_GAME_KEY = 'listopad.photo-game.v1';
       const COLLECTION_KEY = 'listopad.collection.v1';
-      const modeNames = { 14: 'Знаток', 27: 'Супер-знаток' };
+      const modeNames = { 14: 'Знаток', 27: 'Супер-знаток', photos: 'Узнай листья по фото' };
       const screens = [...document.querySelectorAll('.screen')];
       const nameList = document.querySelector('#name-list');
       let species = [];
+      let photoSpecies = [];
       const savedCollection = readJSON(COLLECTION_KEY, []);
       let collection = new Set(Array.isArray(savedCollection) ? savedCollection : []);
-      let game = readJSON(GAME_KEY, null);
-      if (game && (![14, 26, 27].includes(game.mode) || !Array.isArray(game.questions))) game = null;
+      let classicGame = readJSON(GAME_KEY, null);
+      let photoGame = readJSON(PHOTO_GAME_KEY, null);
+      if (classicGame && (![14, 26, 27].includes(classicGame.mode) || !Array.isArray(classicGame.questions))) classicGame = null;
       let selectedMode = 14;
+      let game = classicGame;
+      let photoModeError = null;
       let wrongName = null;
 
       function readJSON(key, fallback) {
@@ -287,8 +297,19 @@
       }
       function save() {
         localStorage.setItem(COLLECTION_KEY, JSON.stringify([...collection]));
-        if (game) localStorage.setItem(GAME_KEY, JSON.stringify(game));
-        else localStorage.removeItem(GAME_KEY);
+        if (game?.mode === 'photos') {
+          photoGame = game;
+          localStorage.setItem(PHOTO_GAME_KEY, JSON.stringify(game));
+        } else if (game) {
+          classicGame = game;
+          localStorage.setItem(GAME_KEY, JSON.stringify(game));
+        } else if (selectedMode === 'photos') {
+          photoGame = null;
+          localStorage.removeItem(PHOTO_GAME_KEY);
+        } else {
+          classicGame = null;
+          localStorage.removeItem(GAME_KEY);
+        }
         updateCollectionCount();
         updateHomeProgress();
       }
@@ -311,10 +332,15 @@
       function updateHomeProgress() {
         const note = document.querySelector('#saved-progress-note');
         const resumable = game && !game.completed && selectedMode === game.mode;
-        note.textContent = game && !game.completed ? `Сохранён режим «${modeNames[game.mode]}»: лист ${game.questionIndex + 1} из ${game.questions.length}.` : '';
+        note.textContent = game && !game.completed
+          ? `Сохранён режим «${modeNames[game.mode]}»: лист ${game.questionIndex + 1} из ${game.questions.length}.`
+          : photoModeError ? `Фоторежим недоступен: ${photoModeError.message}` : '';
         document.querySelector('#start-button').textContent = resumable ? 'Продолжить игру →' : 'Начать игру →';
       }
       function speciesById(id) { return species.find(item => item.id === id); }
+      function gameItemById(id) {
+        return game?.mode === 'photos' ? photoSpecies.find(item => item.id === id) : speciesById(id);
+      }
       function makeMissingArt(label = 'Акварель ещё не добавлена') {
         const art = document.createElement('div');
         art.className = 'missing-art';
@@ -331,8 +357,23 @@
         image.addEventListener('error', () => image.replaceWith(makeMissingArt()));
         return image;
       }
+      function makePhoto(item) {
+        const image = document.createElement('img');
+        image.className = 'photo-image';
+        image.src = item.image;
+        image.alt = `Настоящий лист: ${item.name}`;
+        image.addEventListener('error', () => {
+          const error = document.createElement('div');
+          error.className = 'photo-load-error';
+          error.setAttribute('role', 'alert');
+          error.textContent = `Не удалось загрузить фотографию растения «${item.name}». Проверьте доступность файла ${item.image}.`;
+          image.replaceWith(error);
+        });
+        return image;
+      }
       function startGame(mode) {
-        const selected = shuffle(species).slice(0, mode);
+        const pool = mode === 'photos' ? photoSpecies : species;
+        const selected = shuffle(pool).slice(0, mode === 'photos' ? 18 : mode);
         game = {
           mode,
           questions: selected.map(item => ({
@@ -349,7 +390,7 @@
       function renderGame() {
         if (!game || game.completed) return;
         const question = game.questions[game.questionIndex];
-        const item = speciesById(question.speciesId);
+        const item = gameItemById(question.speciesId);
         document.querySelector('#round-number').textContent = game.questionIndex + 1;
         document.querySelector('#round-meta').textContent = `Режим «${modeNames[game.mode]}» · лист ${game.questionIndex + 1} из ${game.questions.length}`;
         document.querySelector('#score-number').textContent = game.score;
@@ -357,14 +398,17 @@
         const track = document.querySelector('#round-track');
         track.style.setProperty('--round-count', game.questions.length);
         track.innerHTML = game.questions.map((_, index) => `<span class="round-segment ${index < game.questionIndex ? 'done' : index === game.questionIndex ? 'current' : ''}"></span>`).join('');
-        document.querySelector('#question-art').replaceChildren(makeIllustration(item, 'Акварельный рисунок листа'));
+        const questionArt = document.querySelector('#question-art');
+        const isPhotoMode = game.mode === 'photos';
+        questionArt.classList.toggle('photo-question', isPhotoMode);
+        questionArt.replaceChildren(isPhotoMode ? makePhoto(item) : makeIllustration(item, 'Акварельный рисунок листа'));
         nameList.replaceChildren();
         question.choiceIds.forEach(id => {
-          const choice = speciesById(id);
+          const choice = gameItemById(id);
           const button = document.createElement('button');
           button.type = 'button';
           button.className = `name-option${wrongName === id ? ' wrong' : ''}`;
-          button.innerHTML = `${escapeHTML(choice.name)}<span class="latin">${escapeHTML(choice.latin)}</span>`;
+          button.innerHTML = isPhotoMode ? escapeHTML(choice.name) : `${escapeHTML(choice.name)}<span class="latin">${escapeHTML(choice.latin)}</span>`;
           button.addEventListener('click', () => chooseName(id));
           nameList.append(button);
         });
@@ -381,10 +425,14 @@
           window.setTimeout(() => { wrongName = null; renderGame(); }, 600);
           return;
         }
-        const found = speciesById(nameId);
+        const found = gameItemById(nameId);
         game.score += 10;
         game.pendingFactId = found.id;
-        collection.add(nameId);
+        if (game.mode === 'photos') {
+          if (found.collectionId) collection.add(found.collectionId);
+        } else {
+          collection.add(nameId);
+        }
         save();
         showFact(found);
       }
@@ -401,7 +449,7 @@
         modal.setAttribute('aria-labelledby', 'fact-title');
         const isLastQuestion = game.questionIndex + 1 === game.questions.length;
         modal.innerHTML = `<div class="fact-top"><span class="correct-stamp">Правильно!</span></div><div class="fact-art"></div><div class="fact-body"><h2 id="fact-title">${escapeHTML(item.name)}</h2><p class="latin">${escapeHTML(item.latin)}</p><p class="fact-text">${escapeHTML(item.fact)}</p><p class="points">+10 очков</p><button class="primary-button" id="continue-button">Следующий лист <span aria-hidden="true">→</span></button></div>`;
-        modal.querySelector('.fact-art').append(makeIllustration(item));
+        modal.querySelector('.fact-art').append(game.mode === 'photos' ? makePhoto(item) : makeIllustration(item));
         backdrop.append(modal);
         root.append(backdrop);
         modal.querySelector('#continue-button').focus();
@@ -422,8 +470,11 @@
         selectedMode = game.mode;
         const score = game.score;
         const mode = game.mode;
+        const questionCount = game.questions.length;
         save();
-        document.querySelector('#finish-copy').textContent = `Ты узнал ${mode} разных растений в режиме «${modeNames[mode]}». Они уже ждут тебя в коллекции.`;
+        document.querySelector('#finish-copy').textContent = mode === 'photos'
+          ? `Ты узнал ${questionCount} разных растений по фотографиям в режиме «${modeNames[mode]}».`
+          : `Ты узнал ${questionCount} разных растений в режиме «${modeNames[mode]}». Они уже ждут тебя в коллекции.`;
         document.querySelector('#finish-score').textContent = `${score} очков`;
         showScreen('finish-screen');
       }
@@ -457,7 +508,8 @@
         return String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
       }
       document.querySelectorAll('.mode-card').forEach(button => button.addEventListener('click', () => {
-        selectedMode = Number(button.dataset.mode);
+        selectedMode = button.dataset.mode === 'photos' ? 'photos' : Number(button.dataset.mode);
+        game = selectedMode === 'photos' ? photoGame : classicGame;
         document.querySelectorAll('.mode-card').forEach(option => {
           const selected = option === button;
           option.classList.toggle('selected', selected);
@@ -472,10 +524,40 @@
       document.querySelector('#home-link').addEventListener('click', event => { event.preventDefault(); updateHomeProgress(); showScreen('home-screen'); });
       document.querySelector('#collection-nav').addEventListener('click', () => { renderCollection(); showScreen('collection-screen'); });
       document.querySelector('#finish-collection').addEventListener('click', () => { renderCollection(); showScreen('collection-screen'); });
-      fetch('./data/species.json').then(response => {
-        if (!response.ok) throw new Error('Не удалось загрузить справочник деревьев.');
-        return response.json();
-      }).then(data => {
+      function fetchPhotoData() {
+        return fetch('./data/photo-species.json').then(response => {
+          if (!response.ok) throw new Error('Не удалось загрузить справочник фотоснимков.');
+          return response.json();
+        }).then(data => ({ data })).catch(error => ({ error }));
+      }
+      function loadPhotoSpecies(photoData) {
+        if (!Array.isArray(photoData?.photos)) return new Error('В справочнике фотоснимков нет списка фотографий.');
+        photoSpecies = photoData.photos.map(photo => {
+          const relatedSpecies = speciesById(photo.id);
+          return {
+            ...photo,
+            latin: relatedSpecies?.latin ?? photo.latin,
+            fact: relatedSpecies?.fact ?? photo.fact,
+            collectionId: relatedSpecies?.id,
+          };
+        });
+        const photoIds = new Set(photoSpecies.map(item => item.id));
+        if (photoSpecies.length !== 18
+          || photoIds.size !== photoSpecies.length
+          || photoSpecies.some(item => !item.id || !item.name || !item.image || !item.latin || !item.fact)
+          || photoSpecies.filter(item => item.collectionId).length !== 17
+          || !photoIds.has('blackberry')) {
+          return new Error('Для фоторежима нужны 18 уникальных фотографий и факты для всех растений.');
+        }
+        return null;
+      }
+      Promise.all([
+        fetch('./data/species.json').then(response => {
+          if (!response.ok) throw new Error('Не удалось загрузить справочник деревьев.');
+          return response.json();
+        }),
+        fetchPhotoData(),
+      ]).then(([data, photoResult]) => {
         species = data.species;
         const speciesIds = new Set(species.map(item => item.id));
         if (species.length !== 27) throw new Error('В справочнике должно быть ровно 27 видов из набора иллюстраций.');
@@ -483,43 +565,71 @@
         if (speciesIds.has('pear') || speciesIds.has('cherry')) throw new Error('Груша и вишня не должны входить в игровой справочник.');
         if (!speciesIds.has('maple') || !speciesIds.has('variegated-dogwood')) throw new Error('В справочнике должны быть отдельные клён остролистный и дёрен пестролистный.');
         if (!speciesIds.has('red-oak') || !speciesIds.has('oak')) throw new Error('В справочнике должны быть отдельные красный и черешчатый дубы.');
-        if (game?.mode === 26 && !game.completed) {
-          const previousGameSpecies = new Set(game.questions.map(question => question?.speciesId));
-          if (game.questions.length === 26
+        const photoLoadError = photoResult.error ?? loadPhotoSpecies(photoResult.data);
+        if (photoLoadError) {
+          photoModeError = photoLoadError;
+          photoSpecies = [];
+          photoGame = null;
+          localStorage.removeItem(PHOTO_GAME_KEY);
+          const photoModeButton = document.querySelector('[data-mode="photos"]');
+          photoModeButton.disabled = true;
+          photoModeButton.title = photoModeError.message;
+          console.error(photoModeError);
+        }
+        const photoIds = new Set(photoSpecies.map(item => item.id));
+        if (classicGame?.mode === 26 && !classicGame.completed) {
+          const previousGameSpecies = new Set(classicGame.questions.map(question => question?.speciesId));
+          if (classicGame.questions.length === 26
             && previousGameSpecies.size === 26
             && [...previousGameSpecies].every(id => speciesIds.has(id))
             && !previousGameSpecies.has('red-oak')) {
             const redOak = speciesById('red-oak');
-            game.questions.push({
+            classicGame.questions.push({
               speciesId: redOak.id,
               choiceIds: shuffle([redOak.id, ...shuffle(species.filter(item => item.id !== redOak.id)).slice(0, 3).map(item => item.id)]),
             });
-            game.mode = 27;
+            classicGame.mode = 27;
           }
         }
-        const gameSpeciesIds = new Set(game?.questions?.map(question => question.speciesId) ?? []);
-        const validGame = game
-          && modeNames[game.mode]
-          && Array.isArray(game.questions)
-          && game.questions.length === game.mode
-          && gameSpeciesIds.size === game.mode
-          && game.questions.every(question => question
-            && speciesIds.has(question.speciesId)
-            && Array.isArray(question.choiceIds)
-            && question.choiceIds.length === 4
-            && new Set(question.choiceIds).size === question.choiceIds.length
-            && question.choiceIds.every(id => gameSpeciesIds.has(id))
-            && question.choiceIds.includes(question.speciesId))
-          && Number.isInteger(game.questionIndex)
-          && game.questionIndex >= 0
-          && game.questionIndex < game.questions.length;
-        if (game && !validGame) game = null;
+        function validGameState(savedGame, allowedIds, expectedMode, expectedLength) {
+          const gameSpeciesIds = new Set(savedGame?.questions?.map(question => question.speciesId) ?? []);
+          return savedGame
+            && savedGame.mode === expectedMode
+            && Array.isArray(savedGame.questions)
+            && savedGame.questions.length === expectedLength
+            && gameSpeciesIds.size === expectedLength
+            && savedGame.questions.every(question => question
+              && allowedIds.has(question.speciesId)
+              && Array.isArray(question.choiceIds)
+              && question.choiceIds.length === 4
+              && new Set(question.choiceIds).size === question.choiceIds.length
+              && question.choiceIds.every(id => gameSpeciesIds.has(id))
+              && question.choiceIds.includes(question.speciesId))
+            && Number.isInteger(savedGame.questionIndex)
+            && savedGame.questionIndex >= 0
+            && savedGame.questionIndex < savedGame.questions.length;
+        }
+        const classicMode = classicGame?.mode;
+        const classicExpectedCount = classicMode === 14 ? 14 : 27;
+        if (classicGame && !validGameState(classicGame, speciesIds, classicMode, classicExpectedCount)) classicGame = null;
+        if (photoGame && !validGameState(photoGame, photoIds, 'photos', 18)) {
+          photoGame = null;
+          localStorage.removeItem(PHOTO_GAME_KEY);
+        }
         collection = new Set([...collection].filter(id => speciesIds.has(id)));
+        game = classicGame;
+        if (classicGame && !classicGame.completed) {
+          selectedMode = classicGame.mode;
+        } else if (photoGame && !photoGame.completed) {
+          selectedMode = 'photos';
+          game = photoGame;
+        }
         save();
         if (game && !game.completed) {
           selectedMode = game.mode;
           document.querySelectorAll('.mode-card').forEach(button => {
-            const selected = Number(button.dataset.mode) === selectedMode;
+            const buttonMode = button.dataset.mode === 'photos' ? 'photos' : Number(button.dataset.mode);
+            const selected = buttonMode === selectedMode;
             button.classList.toggle('selected', selected);
             button.setAttribute('aria-pressed', String(selected));
           });
@@ -528,7 +638,7 @@
         updateHomeProgress();
         if (game && !game.completed) {
           renderGame();
-          if (game.pendingFactId) showFact(speciesById(game.pendingFactId));
+          if (game.pendingFactId) showFact(gameItemById(game.pendingFactId));
         }
       }).catch(error => {
         document.querySelector('#start-button').disabled = true;
